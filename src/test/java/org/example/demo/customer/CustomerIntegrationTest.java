@@ -1,5 +1,6 @@
 package org.example.demo.customer;
 
+import org.example.demo.AbstractTestContainerTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -8,7 +9,6 @@ import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -21,16 +21,13 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.http.HttpMethod.*;
+import static org.springframework.http.HttpStatus.NOT_FOUND;
 import static org.springframework.http.HttpStatus.OK;
 
-@Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-class CustomerIntegrationTest {
+class CustomerIntegrationTest extends AbstractTestContainerTest {
 
     public static final String API_CUSTOMER_PATH = "/api/v1/customers";
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgreSQLContainer = new PostgreSQLContainer<>(DockerImageName.parse("postgres:16.2"));
 
     @Autowired
     TestRestTemplate testRestTemplate;
@@ -40,11 +37,6 @@ class CustomerIntegrationTest {
 
     }
 
-    @Test
-    void canEstablishedConnection(){
-        assertThat(postgreSQLContainer.isCreated()).isTrue();
-        assertThat(postgreSQLContainer.isRunning()).isTrue();
-    }
     @Test
     void shouldCreateCustomer() {
         CreateCustomerRequest request = new CreateCustomerRequest(
@@ -129,6 +121,45 @@ class CustomerIntegrationTest {
     }
 
     @Test
-    void deleteCustomer() {
+    void shouldDeleteCustomer() {
+        CreateCustomerRequest request = new CreateCustomerRequest(
+                "bao",
+                "nguyenducbao"+ UUID.randomUUID()+"@gmail.com",
+                "VN");
+
+        ResponseEntity<Void> createCustomerResponse = testRestTemplate.exchange(
+                API_CUSTOMER_PATH,
+                POST,
+                new HttpEntity<>(request),
+                Void.class);
+
+        assertThat(createCustomerResponse.getStatusCode())
+                .isEqualTo(OK);
+
+        ResponseEntity<List<Customer>> allCustomersResponse =  testRestTemplate.exchange(
+                API_CUSTOMER_PATH,
+                GET,
+                null,
+                new ParameterizedTypeReference<>(){});
+        assertThat(allCustomersResponse.getStatusCode()).isEqualTo(OK);
+
+        Customer customer = allCustomersResponse.getBody().stream().filter(c -> c.getEmail().equals(request.email())).findFirst().orElseThrow();
+
+        Long id = customer.getId();
+
+        testRestTemplate.exchange(
+                API_CUSTOMER_PATH+"/"+id,
+                DELETE,
+                null,
+                Void.class
+        ).getStatusCode().is2xxSuccessful();
+
+        ResponseEntity<Object> customerByIdResponse = testRestTemplate.exchange(
+                API_CUSTOMER_PATH+"/"+id,
+                GET,
+                null,
+                new ParameterizedTypeReference<>(){});
+
+        assertThat(customerByIdResponse.getStatusCode()).isEqualTo(NOT_FOUND);
     }
 }

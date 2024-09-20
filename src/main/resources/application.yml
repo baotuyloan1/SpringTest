@@ -3,10 +3,10 @@ server:
 spring:
   application:
     name: customer
-  datasource:
-    url: jdbc:postgresql://localhost:5432/customer
-    username: postgres
-    password: postgres
+#  datasource:
+#    url: jdbc:postgresql://localhost:5432/customer
+#    username: postgres
+#    password: postgres
   jpa:
     hibernate:
       ddl-auto: create-drop
